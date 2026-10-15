@@ -29,8 +29,8 @@ def main():
         manifest = json.loads(archive.read("plugin.json"))
         assert manifest["id"] == "dev.kifranei.ampp.media"
         source = json.loads((ROOT / "media-plugin/plugin.json").read_text(encoding="utf-8"))
-        assert manifest["versionName"] == source["versionName"] == "1.2.0"
-        assert manifest["versionCode"] == source["versionCode"] == 11
+        assert manifest["versionName"] == source["versionName"] == "1.3.0"
+        assert manifest["versionCode"] == source["versionCode"] == 12
         assert args.archive.name == f"ampp-media-integrations-{manifest['versionName']}.zip", args.archive.name
         assert manifest["formatVersion"] == manifest["apiVersion"] == 1
         assert manifest["minAndroidApi"] == 28
