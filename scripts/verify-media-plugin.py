@@ -34,7 +34,7 @@ def main():
         assert args.archive.name == f"ampp-media-integrations-{manifest['versionName']}.zip", args.archive.name
         assert manifest["formatVersion"] == manifest["apiVersion"] == 1
         assert manifest["minAndroidApi"] == 28
-        for asset in ("applemusic-1609.json", "ios-media-output.path", "ios-output-headphones.path",
+        for asset in ("applemusic-1611.json", "ios-media-output.path", "ios-output-headphones.path",
                       "ios-output-speaker.png", "ios-output-airpods.png", "licenses/AppleMusicOutputIcons.txt", "licenses/LyricProvider.txt",
                       "licenses/AndroidLiquidGlass.txt", "licenses/AMpp-GPL-3.0.txt"):
             assert archive.getinfo("assets/" + asset).file_size > 0, asset

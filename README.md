@@ -1,6 +1,6 @@
 # AM 媒体增强插件
 
-用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1609**。提供八个功能开关，中英文设置跟随界面语言。
+用于 [AM++](https://github.com/Zennmn/AM-plus-plus) 插件系统 SDK v1 的独立插件，适配 Apple Music **7.0.0-beta / 1611**（1609 及更早版本请使用对应的旧发布包）。提供八个功能开关，中英文设置跟随界面语言。
 
 下载：[最新发布](https://github.com/Kifranei/AM-plus-plus-media-plugin/releases/latest)。
 
@@ -32,7 +32,7 @@
 
 v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。升级时，旧版任一玻璃开关已开启则迁移为开启；明确保存的新开关值优先。把手与系统圆角仍各有独立开关，旧版合并的播放页外观设置会迁移到两项。此版本同时修复媒体按钮冷启动和蓝牙连接后隐藏、全屏封面把手、玻璃动画切角、菜单背景跟手及关闭崩溃，并加入蓝牙设备名称与图标、播放页音量条。
 
-v1.2.0 / 11 重新适配 Apple Music 7.0.0-beta / 1609（宿主 profile `applemusic-1609.json`）；移除了平板播放界面的全部修改（平板双栏/紧凑控件/歌词收起等），并移除对封面尺寸设置方法 `fragment.l.E1(boolean, Size)`（1609 中为 `fragment.m`）的 hook，以消除与其他注册的冲突。同时在欧加真（ColorOS / realme UI / OxygenOS）系统上自动禁用播放页音量条：按 `Build.MANUFACTURER`/`Build.BRAND` 及系统属性识别，即使已保存为开启也不安装，设置开关显示为关闭且不可切换。此版本还新增「艺术家特色字标」下载：读取原生 `editorialArtwork["musicContentColorLogoTrimmed"]`（1609 `EditorialImageType.ARTIST_LOGO`），按原始尺寸请求透明 PNG 并保存到 `Download/AM++`，仅在艺术家有字标时显示；CI 改为从 `media-plugin/plugin.json` 读取版本号校验 ZIP。
+v1.2.0 / 11 在 Apple Music 7.0.0-beta / 1611 上重新核对并更新了宿主 profile（`applemusic-1611.json`，类名、方法名和字段名按 1609 → 1611 重新映射；「更多」菜单点击方法的参数顺序由 `(int, View, item)` 变为 `(item, View, int)`，插件按参数类型传参）。以下为 1609 适配说明：重新适配 Apple Music 7.0.0-beta / 1609（宿主 profile `applemusic-1611.json`）；移除了平板播放界面的全部修改（平板双栏/紧凑控件/歌词收起等），并移除对封面尺寸设置方法 `fragment.l.E1(boolean, Size)`（1609 中为 `fragment.m`）的 hook，以消除与其他注册的冲突。同时在欧加真（ColorOS / realme UI / OxygenOS）系统上自动禁用播放页音量条：按 `Build.MANUFACTURER`/`Build.BRAND` 及系统属性识别，即使已保存为开启也不安装，设置开关显示为关闭且不可切换。此版本还新增「艺术家特色字标」下载：读取原生 `editorialArtwork["musicContentColorLogoTrimmed"]`（1609 `EditorialImageType.ARTIST_LOGO`），按原始尺寸请求透明 PNG 并保存到 `Download/AM++`，仅在艺术家有字标时显示；CI 改为从 `media-plugin/plugin.json` 读取版本号校验 ZIP。
 
 以下为 `1.1.0 / 10` 的历史说明：音量条适应平板、横竖屏及不同 DPI；平板使用较小的歌曲信息和紧凑的底部控件，双栏按 iPad 风格排列，歌词可收起后居中。下方区域按播放时完整封面宽度对齐，暂停时保持宽度，轻微拖动和回弹后保留布局。手机切页保留三个原生动作按钮。静态封面尺寸跟随原生容器，旋转和后台返回时修复失效的背景缓存；保留原生播放／暂停缩放。更多玻璃菜单固定在窗口右上安全区。详情页提供内容下载，兼容动态视频时间轴和 Apple HLS 扩展属性；支持特殊 Logo 字标艺人的下载入口。构建及设备验证范围见 [验证记录](VALIDATION.md) 和 [布局验证](LAYOUT_VALIDATION.md)。
 
@@ -68,7 +68,7 @@ Linux/macOS 使用 `./gradlew`。产物位于 `media-plugin/build/dist/`。
 可用自己的 Apple Music APK 验证目标符号：
 
 ```text
-python -B scripts/verify-host-profile.py apple-music-1609.apk --glass
+python -B scripts/verify-host-profile.py apple-music-1611.apk --glass
 ```
 
 代码通过 SDK 注册 Hook 和观察者，使用插件自己的版本适配表、素材和设置。验收与构建记录见 [VALIDATION.md](VALIDATION.md)。

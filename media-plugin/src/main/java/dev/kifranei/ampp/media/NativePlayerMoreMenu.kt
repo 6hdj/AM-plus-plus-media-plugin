@@ -63,7 +63,10 @@ internal class NativePlayerMoreMenu(private val activity: Activity, private val 
                     val item = if (position - currentOffset < currentMain.size) getItem.invoke(source, position)
                         else makeItem.invoke(source, activity,
                             (footer.get(source) as List<*>)[position - currentOffset - currentMain.size], sourceItem.get(source))
-                    click.invoke(dispatcher, position, view, item)
+                    // 1611 reordered the native click parameters to (item, View, int); bind by type.
+                    click.invoke(dispatcher, *click.parameterTypes.map { type ->
+                        when { type == Integer.TYPE -> position; View::class.java.isAssignableFrom(type) -> view; else -> item }
+                    }.toTypedArray())
                 }
             }
         }
