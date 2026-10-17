@@ -51,7 +51,7 @@ internal object MoreMenuGlass {
 
 /**
  * "No frost (early look)": vibrancy + blur 20dp + lens(20dp, 32dp), no surface tint (host highlight kept off).
- * Rim is the same explicit More-menu white gradient `.border` (0.6dp, alphas .28/.07/.18), not the host highlight.
+ * Rim: the host default Highlight, exactly like the secondary pill button (see [popupGlass]).
  */
 internal object NoFrostGlass {
     val blurDp = 20.dp
@@ -61,7 +61,12 @@ internal object NoFrostGlass {
     val fallback = Color.Black.copy(alpha = .25f)
 }
 
-/** Popup glass in the user-selected [style]; every style is neutral (gray/white), none uses an accent color. */
+/**
+ * Popup glass in the user-selected [style]; every style is neutral (gray/white), none uses an accent color.
+ * The popup rim of ALL styles is the host default `Highlight` (0.5dp, blur 0.25dp, alpha 1, angled white Plus-blend
+ * shader) - the very same edge the secondary "Settings" LiquidButton (host `drawBackdrop` default highlight) gets.
+ * No extra explicit `.border`, so there is never a double rim; clipped to the popup's rounded shape by the host.
+ */
 internal fun Modifier.popupGlass(backdrop: Backdrop, shape: androidx.compose.ui.graphics.Shape,
     style: PopupGlassStyle = PopupGlassStyle.current): Modifier = when (style) {
     PopupGlassStyle.BOTTOM_BAR -> compatDrawBackdrop(backdrop, shape = { shape },
@@ -70,11 +75,9 @@ internal fun Modifier.popupGlass(backdrop: Backdrop, shape: androidx.compose.ui.
     PopupGlassStyle.MORE_MENU -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(20.dp.toPx()); lens(10.dp.toPx(), 16.dp.toPx())
     }, onDrawSurface = { drawRect(MoreMenuGlass.surface) })
-        .border(.6.dp, Brush.linearGradient(MoreMenuGlass.rim), shape)
     PopupGlassStyle.NO_FROST -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(NoFrostGlass.blurDp.toPx()); lens(NoFrostGlass.lensEdgeDp.toPx(), NoFrostGlass.lensDepthDp.toPx())
-    }, onDrawSurface = {}, hostHighlight = false, fallbackSurface = { drawRect(NoFrostGlass.fallback) })
-        .border(.6.dp, Brush.linearGradient(MoreMenuGlass.rim), shape)
+    }, onDrawSurface = {}, fallbackSurface = { drawRect(NoFrostGlass.fallback) })
 }
 
 /** Same material, radius and buttons as the audio-quality disclosure. */
