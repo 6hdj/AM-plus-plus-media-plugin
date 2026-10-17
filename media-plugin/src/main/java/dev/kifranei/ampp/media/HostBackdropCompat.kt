@@ -53,8 +53,11 @@ internal object HostBackdropCompat {
      * onDrawBehind, onDrawBackdrop, onDrawFront) takes the host default.
      * [paramCount] is the JVM parameter count of the underlying method, [surfaceIndex] the JVM index of onDrawSurface.
      */
-    internal fun defaultMask(paramCount: Int, surfaceIndex: Int): Int =
-        ((1 shl (paramCount - 1)) - 1) and 0b111.inv() and (1 shl (surfaceIndex - 1)).inv()
+    internal fun defaultMask(paramCount: Int, surfaceIndex: Int, hostHighlight: Boolean = true): Int {
+        val mask = ((1 shl (paramCount - 1)) - 1) and 0b111.inv() and (1 shl (surfaceIndex - 1)).inv()
+        // Declared parameter 3 is `highlight`; leaving its bit clear passes the explicit null = no rim.
+        return if (hostHighlight) mask else mask and (1 shl 3).inv()
+    }
 
     fun apply(
         modifier: Modifier,
@@ -62,6 +65,8 @@ internal object HostBackdropCompat {
         shape: () -> Shape,
         effects: BackdropEffectScope.() -> Unit,
         onDrawSurface: DrawScope.() -> Unit,
+        hostHighlight: Boolean = true,
+        fallbackSurface: DrawScope.() -> Unit = onDrawSurface,
     ): Modifier {
         val host = resolve()
         if (host != null) {
@@ -74,7 +79,7 @@ internal object HostBackdropCompat {
                 args[0] = modifier; args[1] = backdrop; args[2] = shape; args[3] = effects
                 val surfaceIndex = size - 2
                 args[surfaceIndex] = onDrawSurface
-                args[size] = defaultMask(size, surfaceIndex)
+                args[size] = defaultMask(size, surfaceIndex, hostHighlight)
                 args[size + 1] = null
                 return host.method.invoke(null, *args) as Modifier
             } catch (error: Throwable) {
@@ -82,7 +87,7 @@ internal object HostBackdropCompat {
                 if (!logged) { logged = true; MediaRuntime.log("backdrop_compat: host drawBackdrop failed; plain surface", error) }
             }
         }
-        return modifier.clip(shape()).drawBehind(onDrawSurface)
+        return modifier.clip(shape()).drawBehind(fallbackSurface)
     }
 }
 
@@ -91,4 +96,6 @@ internal fun Modifier.compatDrawBackdrop(
     shape: () -> Shape,
     effects: BackdropEffectScope.() -> Unit,
     onDrawSurface: DrawScope.() -> Unit,
-): Modifier = HostBackdropCompat.apply(this, backdrop, shape, effects, onDrawSurface)
+    hostHighlight: Boolean = true,
+    fallbackSurface: DrawScope.() -> Unit = onDrawSurface,
+): Modifier = HostBackdropCompat.apply(this, backdrop, shape, effects, onDrawSurface, hostHighlight, fallbackSurface)

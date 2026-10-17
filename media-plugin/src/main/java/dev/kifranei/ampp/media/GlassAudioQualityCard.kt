@@ -23,9 +23,7 @@ import com.kyant.backdrop.catalog.components.LiquidButton
 fun GlassAudioQualityCard(backdrop: Backdrop, badge: Drawable, title: String, encoding: String,
     source: String, settingsLabel: String, doneLabel: String, openSettings: () -> Unit, done: () -> Unit) {
     val shape = RoundedCornerShape(32.dp)
-    Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop = backdrop, shape = { shape },
-        effects = { bottomBarGlassEffects() },
-        onDrawSurface = { drawRect(BottomBarGlass.container) })
+    Column(Modifier.fillMaxSize().popupGlass(backdrop, shape)
         .padding(22.dp)) {
         Canvas(Modifier.size(width = 96.dp, height = 80.dp).align(Alignment.CenterHorizontally)) {
             val canvas = drawContext.canvas.nativeCanvas

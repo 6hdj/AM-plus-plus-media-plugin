@@ -1,6 +1,8 @@
 package dev.kifranei.ampp.media
 
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -39,13 +41,43 @@ internal fun com.kyant.backdrop.BackdropEffectScope.bottomBarGlassEffects() {
     lens(edge, edge)
 }
 
+/** More-menu material (see GlassPlayerMoreMenu), dark variant: neutral gray 0xFF3A3A3C @ .36, no blue. */
+internal object MoreMenuGlass {
+    val surface = Color(0xFF3A3A3C).copy(alpha = .36f)
+    val rim = listOf(Color.White.copy(alpha = .28f), Color.White.copy(alpha = .07f), Color.White.copy(alpha = .18f))
+}
+
+/**
+ * "No frost (early look)": what the first 1.3.2 build effectively drew (a wrong `$default` mask dropped
+ * the surface and the highlight): vibrancy + blur 20dp + lens(20dp, 32dp), no tint, no rim. Passed explicitly.
+ */
+internal object NoFrostGlass {
+    val blurDp = 20.dp
+    val lensEdgeDp = 20.dp
+    val lensDepthDp = 32.dp
+    /** Only used if the host drawBackdrop is unavailable (fail-open): faint neutral scrim so text stays legible. */
+    val fallback = Color.Black.copy(alpha = .25f)
+}
+
+/** Popup glass in the user-selected [style]; every style is neutral (gray/white), none uses an accent color. */
+internal fun Modifier.popupGlass(backdrop: Backdrop, shape: androidx.compose.ui.graphics.Shape,
+    style: PopupGlassStyle = PopupGlassStyle.current): Modifier = when (style) {
+    PopupGlassStyle.BOTTOM_BAR -> compatDrawBackdrop(backdrop, shape = { shape },
+        effects = { bottomBarGlassEffects() }, onDrawSurface = { drawRect(BottomBarGlass.container) })
+    PopupGlassStyle.MORE_MENU -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
+        vibrancy(); blur(20.dp.toPx()); lens(10.dp.toPx(), 16.dp.toPx())
+    }, onDrawSurface = { drawRect(MoreMenuGlass.surface) })
+        .border(.6.dp, Brush.linearGradient(MoreMenuGlass.rim), shape)
+    PopupGlassStyle.NO_FROST -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
+        vibrancy(); blur(NoFrostGlass.blurDp.toPx()); lens(NoFrostGlass.lensEdgeDp.toPx(), NoFrostGlass.lensDepthDp.toPx())
+    }, onDrawSurface = {}, hostHighlight = false, fallbackSurface = { drawRect(NoFrostGlass.fallback) })
+}
+
 /** Same material, radius and buttons as the audio-quality disclosure. */
 @Composable
 internal fun GlassPlayerDialogMaterial(backdrop: Backdrop, content: @Composable ColumnScope.() -> Unit = {}) {
     val shape = RoundedCornerShape(32.dp)
-    Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop, shape = { shape },
-        effects = { bottomBarGlassEffects() },
-        onDrawSurface = { drawRect(BottomBarGlass.container) }), content = content)
+    Column(Modifier.fillMaxSize().popupGlass(backdrop, shape), content = content)
 }
 
 @Composable

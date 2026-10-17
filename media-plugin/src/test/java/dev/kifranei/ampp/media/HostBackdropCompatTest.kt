@@ -16,6 +16,12 @@ class HostBackdropCompatTest {
         assertEquals(0, mask and 7)            // backdrop/shape/effects explicit
     }
 
+    @Test fun noHighlightMaskOnlyClearsHighlightBit() {
+        assertEquals(0x2FF8 and 8.inv(), HostBackdropCompat.defaultMask(15, 13, hostHighlight = false))
+        assertEquals(0x17F8 and 8.inv(), HostBackdropCompat.defaultMask(14, 12, hostHighlight = false))
+        assertEquals(0x2FF8, HostBackdropCompat.defaultMask(15, 13, hostHighlight = true))
+    }
+
     @Test fun oldHostMask() = assertEquals(0x17F8, HostBackdropCompat.defaultMask(14, 12))
 
     @Test fun bundledHostJarSignatureMatchesMask() {

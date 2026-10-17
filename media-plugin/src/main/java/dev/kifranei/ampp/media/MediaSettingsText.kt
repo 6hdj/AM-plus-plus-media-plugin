@@ -16,6 +16,12 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
     val playerGlass get() = text("播放页界面启用液态玻璃", "Enable Liquid Glass on the player screen")
     val playerGlassDescription get() = text("为睡眠定时、删除确认弹窗、更多菜单和音质弹窗启用液态玻璃效果。",
         "Apply Liquid Glass to the sleep timer, deletion confirmation dialog, More menu, and audio quality dialog.")
+    val popupGlassStyle get() = text("弹窗液态玻璃样式", "Popup Liquid Glass style")
+    val popupGlassStyleDescription get() = text("作用于睡眠定时、删除确认和音质弹窗；更多菜单保持自身效果。保存后重开 Apple Music 生效。",
+        "Applies to the sleep timer, deletion confirmation and audio quality popups; the More menu keeps its own look. Reopen Apple Music after saving.")
+    val popupStyleBottomBar get() = text("同底栏", "Same as bottom bar")
+    val popupStyleMoreMenu get() = text("同更多菜单", "Same as More menu")
+    val popupStyleNoFrost get() = text("无磨砂（早期效果）", "No frost (early look)")
     val qualityGlass get() = text("液态玻璃音质弹窗", "Liquid Glass audio quality dialog")
     val moreGlass get() = text("液态玻璃更多菜单", "Liquid Glass More menu")
     val confirmationGlass get() = text("液态玻璃删除确认弹窗", "Liquid Glass deletion confirmation dialog")
