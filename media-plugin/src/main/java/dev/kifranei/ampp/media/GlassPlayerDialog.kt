@@ -1,12 +1,10 @@
 package dev.kifranei.ampp.media
 
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -22,15 +20,32 @@ import com.kyant.backdrop.effects.vibrancy
 
 internal data class GlassDialogAction(val label: String, val destructive: Boolean, val perform: () -> Unit)
 
+/**
+ * Material copied from AM++'s liquid-glass bottom bar (glass/LiquidBottomTabs.kt `glassPanelMaterial`
+ * + GlassNavigation `materialModifier`): vibrancy() + blur(GlassPolicy.PANEL_BLUR_DP = 4dp),
+ * lens(24dp, 24dp) (GlassNavigation clamps it to 0.375 * min dimension), surface = containerColor
+ * (dark theme 0xFF121212 @ 0.4), host-default Highlight (rim) and Shadow (the compat layer leaves them to the host).
+ */
+internal object BottomBarGlass {
+    val blurDp = 4.dp
+    val lensDp = 24.dp
+    val container = Color(0xFF121212).copy(alpha = .4f)
+}
+
+internal fun com.kyant.backdrop.BackdropEffectScope.bottomBarGlassEffects() {
+    vibrancy()
+    blur(BottomBarGlass.blurDp.toPx())
+    val edge = minOf(BottomBarGlass.lensDp.toPx(), size.minDimension * 0.375f)
+    lens(edge, edge)
+}
+
 /** Same material, radius and buttons as the audio-quality disclosure. */
 @Composable
 internal fun GlassPlayerDialogMaterial(backdrop: Backdrop, content: @Composable ColumnScope.() -> Unit = {}) {
     val shape = RoundedCornerShape(32.dp)
-    Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop, shape = { shape }, effects = {
-        vibrancy(); blur(20.dp.toPx()); lens(20.dp.toPx(), 32.dp.toPx())
-    }, onDrawSurface = { drawRect(Color(0xFF101828).copy(alpha = .35f)) })
-        .border(.6.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = .28f),
-            Color.White.copy(alpha = .07f), Color.White.copy(alpha = .18f))), shape), content = content)
+    Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop, shape = { shape },
+        effects = { bottomBarGlassEffects() },
+        onDrawSurface = { drawRect(BottomBarGlass.container) }), content = content)
 }
 
 @Composable
