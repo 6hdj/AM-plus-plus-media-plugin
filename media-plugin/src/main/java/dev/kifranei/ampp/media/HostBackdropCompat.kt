@@ -16,7 +16,7 @@ import java.lang.reflect.Method
  * IntSize parameter was inserted), so a direct call compiled against one host jar throws
  * NoSuchMethodError on another. This resolves the host's `drawBackdrop-*$default` bridge reflectively
  * (14 parameters = older hosts, 15 = newer hosts), passes only backdrop/shape/effects/surface and lets
- * the host apply its own defaults. If anything is missing or fails, it degrades to a plain clipped
+ * the host apply its own defaults (highlight, shadow, ...; mask bits exclude the receiver). If anything is missing or fails, it degrades to a plain clipped
  * translucent surface instead of throwing into Apple Music.
  */
 internal object HostBackdropCompat {
@@ -46,6 +46,16 @@ internal object HostBackdropCompat {
         }
     }
 
+    /**
+     * Kotlin `$default` mask: bit i is the i-th *declared* parameter, the extension receiver (Modifier)
+     * is NOT counted. Declared 0..2 are backdrop/shape/effects (explicit), `onDrawSurface` is explicit,
+     * everything else (highlight, shadow, innerShadow, layerBlock, clip, exported, minLayerSize,
+     * onDrawBehind, onDrawBackdrop, onDrawFront) takes the host default.
+     * [paramCount] is the JVM parameter count of the underlying method, [surfaceIndex] the JVM index of onDrawSurface.
+     */
+    internal fun defaultMask(paramCount: Int, surfaceIndex: Int): Int =
+        ((1 shl (paramCount - 1)) - 1) and 0b111.inv() and (1 shl (surfaceIndex - 1)).inv()
+
     fun apply(
         modifier: Modifier,
         backdrop: Backdrop,
@@ -64,8 +74,7 @@ internal object HostBackdropCompat {
                 args[0] = modifier; args[1] = backdrop; args[2] = shape; args[3] = effects
                 val surfaceIndex = size - 2
                 args[surfaceIndex] = onDrawSurface
-                val defaults = ((1 shl size) - 1) and 0xF.inv() and (1 shl surfaceIndex).inv()
-                args[size] = defaults
+                args[size] = defaultMask(size, surfaceIndex)
                 args[size + 1] = null
                 return host.method.invoke(null, *args) as Modifier
             } catch (error: Throwable) {

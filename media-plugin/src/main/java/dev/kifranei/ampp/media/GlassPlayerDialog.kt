@@ -24,33 +24,34 @@ internal data class GlassDialogAction(val label: String, val destructive: Boolea
 
 /** Same material, radius and buttons as the audio-quality disclosure. */
 @Composable
-internal fun GlassPlayerDialogMaterial(backdrop: Backdrop, light: Boolean = false, content: @Composable ColumnScope.() -> Unit = {}) {
+internal fun GlassPlayerDialogMaterial(backdrop: Backdrop, content: @Composable ColumnScope.() -> Unit = {}) {
     val shape = RoundedCornerShape(32.dp)
-    val accent = if (light) Color.White else Color(0xFF70B8FF)
     Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(20.dp.toPx()); lens(20.dp.toPx(), 32.dp.toPx())
-    }, onDrawSurface = { drawRect(if (light) Color(0xFFD1D5D3).copy(alpha = .68f) else Color(0xFF101828).copy(alpha = .35f)) })
-        .border(1.dp, Brush.linearGradient(listOf(accent.copy(alpha = .65f), Color.White.copy(alpha = .1f),
-            accent.copy(alpha = .35f))), shape), content = content)
+    }, onDrawSurface = { drawRect(Color(0xFF101828).copy(alpha = .35f)) })
+        .border(.6.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = .28f),
+            Color.White.copy(alpha = .07f), Color.White.copy(alpha = .18f))), shape), content = content)
 }
 
 @Composable
 internal fun GlassDeleteConfirmation(backdrop: Backdrop, title: String, message: String, actions: List<GlassDialogAction>) {
-    GlassPlayerDialogMaterial(backdrop, light = true) {
+    GlassPlayerDialogMaterial(backdrop) {
         Column(Modifier.fillMaxSize().padding(22.dp), verticalArrangement = Arrangement.Center) {
             if (title.isNotBlank()) {
-                BasicText(title, Modifier.fillMaxWidth(), TextStyle(color = Color.Black, fontSize = 22.sp,
+                BasicText(title, Modifier.fillMaxWidth(), TextStyle(color = Color.White, fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Start))
                 Spacer(Modifier.height(10.dp))
             }
-            BasicText(message, Modifier.fillMaxWidth(), TextStyle(color = Color.Black,
+            BasicText(message, Modifier.fillMaxWidth(), TextStyle(color = Color.White,
                 fontSize = 18.sp, textAlign = TextAlign.Start))
             Spacer(Modifier.height(24.dp))
             @Composable fun button(action: GlassDialogAction, modifier: Modifier) {
-                // Keep iOS's neutral gray fill even over strongly colored artwork.
-                LiquidButton(action.perform, backdrop, modifier.height(48.dp), surfaceColor = Color(0xFFD1D1D6).copy(alpha = .96f)) {
+                // Same buttons as the audio-quality card: white pill = primary (the destructive action),
+                // translucent glass pill with white text = secondary.
+                LiquidButton(action.perform, backdrop, modifier.height(48.dp),
+                    surfaceColor = if (action.destructive) Color.White.copy(alpha = .95f) else Color.White.copy(alpha = .15f)) {
                     val label = if (action.destructive && action.label == "从资料库中删除") "从资料库删除" else action.label
-                    BasicText(label, style = TextStyle(color = if (action.destructive) Color(0xFFFF3B30) else Color.Black,
+                    BasicText(label, style = TextStyle(color = if (action.destructive) Color(0xFFFF3B30) else Color.White,
                         fontSize = 17.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center))
                 }
             }

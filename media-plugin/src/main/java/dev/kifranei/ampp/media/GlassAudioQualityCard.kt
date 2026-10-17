@@ -28,14 +28,13 @@ import com.kyant.backdrop.effects.vibrancy
 fun GlassAudioQualityCard(backdrop: Backdrop, badge: Drawable, title: String, encoding: String,
     source: String, settingsLabel: String, doneLabel: String, openSettings: () -> Unit, done: () -> Unit) {
     val shape = RoundedCornerShape(32.dp)
-    val accent = Color(0xFF70B8FF)
     Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop = backdrop, shape = { shape }, effects = {
         vibrancy()
         blur(20.dp.toPx())
         lens(20.dp.toPx(), 32.dp.toPx())
     }, onDrawSurface = { drawRect(Color(0xFF101828).copy(alpha = .35f)) })
-        .border(1.dp, Brush.linearGradient(listOf(accent.copy(alpha = .65f), Color.White.copy(alpha = .1f),
-            accent.copy(alpha = .35f))), shape)
+        .border(.6.dp, Brush.linearGradient(listOf(Color.White.copy(alpha = .28f),
+            Color.White.copy(alpha = .07f), Color.White.copy(alpha = .18f))), shape)
         .padding(22.dp)) {
         Canvas(Modifier.size(width = 96.dp, height = 80.dp).align(Alignment.CenterHorizontally)) {
             val canvas = drawContext.canvas.nativeCanvas
