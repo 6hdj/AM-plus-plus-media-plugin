@@ -27,7 +27,7 @@ internal class MediaSettingsText private constructor(private val chinese: Boolea
         "Not supported on ColorOS / realme UI / OxygenOS (OPPO, realme, OnePlus) yet; disabled automatically.")
     val contentDownloads get() = text("下载封面、歌词和介绍", "Download artwork, lyrics and descriptions")
     val contentDownloadsDescription get() = text("在艺术家和专辑详情页下载图片、MP4 动态封面及介绍；播放页更多菜单或长按歌词按钮下载原始 TTML。保存到 Download/AM++。",
-        "Download artwork, MP4 motion artwork and descriptions from artist and album pages. Export original TTML from the player More menu or by holding the lyrics button. Save to Download/AM++.")
+        "Download artwork (including the full-resolution still album cover), MP4 motion artwork and descriptions from artist and album pages. Export original TTML from the player More menu or by holding the lyrics button. Save to Download/AM++.")
     val playerAppearance get() = text("播放页外观", "Player screen appearance")
     val disabled get() = text("已关闭", "Disabled")
     val startupFailed get() = text("启动失败", "Startup failed")

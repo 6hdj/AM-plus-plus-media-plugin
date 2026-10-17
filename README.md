@@ -15,7 +15,7 @@
 | 播放页顶部把手 | 手机和平板普通封面显示 Flamingo 风格的非交互把手；全屏封面隐藏，随原生展开进度显隐，保留原生手势。 |
 | 播放页系统圆角 | 读取 Android 12+ 系统圆角，接口缺失时使用系统资源回退；原生背景和动画层使用相同顶部圆角，避免裁剪正在展开的玻璃卡片。 |
 | 播放页音量条 | 手机和平板、横竖屏的封面、歌词和播放列表页均支持 iOS 风格音量条，控制系统媒体音量并同步硬件音量键。按当前控件实际尺寸预留高度，适应不同系统及 AM 内部 DPI；双栏时音量条留在播放控件所在列。原生进出动画期间保持控件布局，切页时逐帧恢复音量条的有效位置。收起播放页时隐藏，固定音量设备显示为不可调节。平板同时开启 iOS 媒体控制时，按实测控件高度紧凑排列进度条、播放键、音量条和底部动作，为封面保留更多空间。OPPO / realme / OnePlus（ColorOS / realme UI / OxygenOS）因默认 DPI 较大暂不支持，自动禁用且开关不可开启。 |
-| 下载封面、歌词和介绍 | 艺术家详情页标题旁下载静态 JPEG、动态 MP4 和传记，带特色字标的艺术家另可下载最高分辨率透明 PNG 字标；专辑详情页下载动态 MP4 和介绍。播放页更多菜单或长按歌词按钮保存原始 TTML，包括逐词时间、翻译、注音及人声信息。保存到 `Download/AM++`，支持取消，失败后清理未完成文件。 |
+| 下载封面、歌词和介绍 | 艺术家详情页标题旁下载静态 JPEG、动态 MP4 和传记，带特色字标的艺术家另可下载最高分辨率透明 PNG 字标；专辑详情页可分别下载静态封面（原始最大尺寸 JPEG）、动态 MP4 和介绍。播放页更多菜单或长按歌词按钮保存原始 TTML，包括逐词时间、翻译、注音及人声信息。保存到 `Download/AM++`，支持取消，失败后清理未完成文件。 |
 
 ## 使用
 
@@ -32,9 +32,9 @@
 
 v1.1.0 将四个玻璃功能合并为「播放页界面启用液态玻璃」。升级时，旧版任一玻璃开关已开启则迁移为开启；明确保存的新开关值优先。把手与系统圆角仍各有独立开关，旧版合并的播放页外观设置会迁移到两项。此版本同时修复媒体按钮冷启动和蓝牙连接后隐藏、全屏封面把手、玻璃动画切角、菜单背景跟手及关闭崩溃，并加入蓝牙设备名称与图标、播放页音量条。
 
-v1.3.2 / 14 修复在较新 AM++（含 Apple Music 1611 适配构建）上打开播放页「更多」菜单时的崩溃 `NoSuchMethodError: drawBackdrop-QPzRGKA$default`：AM++ 的 `drawBackdrop` 签名（编译器改写的方法名与参数）已变化（新增 `minLayerSize`），旧版插件按旧签名直接调用。现通过反射解析宿主实际签名（兼容旧 14 参数与新 15 参数），并在不可用或失败时退回为普通半透明圆角面板，不再让宿主崩溃。「更多」菜单、音质弹窗、删除确认/睡眠定时弹窗均已改用该兼容层；校验脚本禁止直接引用该改写方法名。仅静态校验，未在真机上测试。
+v1.3.2 / 14 新增专辑详情页「专辑封面（静态 JPEG，原始最大尺寸）」下载，与动态封面分开，适用于 Apple Music 1606/1607/1609/1611；另修复在较新 AM++（含 Apple Music 1611 适配构建）上打开播放页「更多」菜单时的崩溃 `NoSuchMethodError: drawBackdrop-QPzRGKA$default`：AM++ 的 `drawBackdrop` 签名（编译器改写的方法名与参数）已变化（新增 `minLayerSize`），旧版插件按旧签名直接调用。现通过反射解析宿主实际签名（兼容旧 14 参数与新 15 参数），并在不可用或失败时退回为普通半透明圆角面板，不再让宿主崩溃。「更多」菜单、音质弹窗、删除确认/睡眠定时弹窗均已改用该兼容层；校验脚本禁止直接引用该改写方法名。仅静态校验，未在真机上测试。
 
-v1.3.2 / 14 fixes a crash when opening the player More menu on newer AM++ builds (including the Apple Music 1611 build): `NoSuchMethodError: drawBackdrop-QPzRGKA\$default`. AM++'s `drawBackdrop` signature (compiler-mangled name and parameters) changed (`minLayerSize` was added) while the plugin called the old one directly. The plugin now resolves the host's real signature reflectively (older 14-parameter and newer 15-parameter forms) and falls back to a plain translucent rounded panel if unavailable or failing, so the host cannot crash. The More menu, audio-quality card and delete/sleep-timer dialogs all use this layer; the verifier forbids direct references to the mangled method. Statically verified only; not tested on a device.
+v1.3.2 / 14 adds a separate "Album cover (still JPEG, full resolution)" download on the album page (distinct from the animated cover; Apple Music 1606/1607/1609/1611) and fixes a crash when opening the player More menu on newer AM++ builds (including the Apple Music 1611 build): `NoSuchMethodError: drawBackdrop-QPzRGKA\$default`. AM++'s `drawBackdrop` signature (compiler-mangled name and parameters) changed (`minLayerSize` was added) while the plugin called the old one directly. The plugin now resolves the host's real signature reflectively (older 14-parameter and newer 15-parameter forms) and falls back to a plain translucent rounded panel if unavailable or failing, so the host cannot crash. The More menu, audio-quality card and delete/sleep-timer dialogs all use this layer; the verifier forbids direct references to the mangled method. Statically verified only; not tested on a device.
 
 v1.3.1 / 13 修复 Apple Music 1611 的歌曲／歌词卡片图片分享与保存：1611 把分享进度页的 LiveData 观察者由 `commerce.activities.l` 改为 `commerce.activities.m`，旧 profile 沿用了 1609 的类名，导致 hook 未命中、原生流程接管（与商店地区无关）。1606/1607/1609 不变。同时加强 APK 校验：除符号存在外，还检查分享进度页确实实例化该观察者类，观察者持有／转换进度页与结果封装类型，且结构候选唯一（1606 的类型化字段与 1607+ 的 check-cast 均接受）。新增 DexKit 辅助的后台结构检查（试点，仅卡片分享）：JSON profile 优先；profile 观察者通过反射校验即立即安装全部 hook（含分享按钮），DexKit 仅在后台核对，确认「profile 观察者并非由进度页实例化」且候选唯一时才缓存（按 Apple Music `versionCode`+`lastUpdateTime`，SharedPreferences）并于下次启动生效；DexKit 或原生库不可用只记录 `card_sharing:` 日志，不影响按钮。仅当 profile 观察者本身不可用且 DexKit 无法唯一解析时才不安装。插件包只含 DexKit Java API，`libdexkit.so` 从 AM++ 模块加载。
 
