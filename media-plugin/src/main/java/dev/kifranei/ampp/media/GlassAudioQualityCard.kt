@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
-import com.kyant.backdrop.drawBackdrop
+
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
@@ -29,7 +29,7 @@ fun GlassAudioQualityCard(backdrop: Backdrop, badge: Drawable, title: String, en
     source: String, settingsLabel: String, doneLabel: String, openSettings: () -> Unit, done: () -> Unit) {
     val shape = RoundedCornerShape(32.dp)
     val accent = Color(0xFF70B8FF)
-    Column(Modifier.fillMaxSize().drawBackdrop(backdrop = backdrop, shape = { shape }, effects = {
+    Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop = backdrop, shape = { shape }, effects = {
         vibrancy()
         blur(20.dp.toPx())
         lens(20.dp.toPx(), 32.dp.toPx())

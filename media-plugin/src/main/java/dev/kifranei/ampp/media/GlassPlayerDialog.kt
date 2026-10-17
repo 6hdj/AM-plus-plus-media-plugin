@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.catalog.components.LiquidButton
-import com.kyant.backdrop.drawBackdrop
+
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
@@ -27,7 +27,7 @@ internal data class GlassDialogAction(val label: String, val destructive: Boolea
 internal fun GlassPlayerDialogMaterial(backdrop: Backdrop, light: Boolean = false, content: @Composable ColumnScope.() -> Unit = {}) {
     val shape = RoundedCornerShape(32.dp)
     val accent = if (light) Color.White else Color(0xFF70B8FF)
-    Column(Modifier.fillMaxSize().drawBackdrop(backdrop, shape = { shape }, effects = {
+    Column(Modifier.fillMaxSize().compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(20.dp.toPx()); lens(20.dp.toPx(), 32.dp.toPx())
     }, onDrawSurface = { drawRect(if (light) Color(0xFFD1D5D3).copy(alpha = .68f) else Color(0xFF101828).copy(alpha = .35f)) })
         .border(1.dp, Brush.linearGradient(listOf(accent.copy(alpha = .65f), Color.White.copy(alpha = .1f),
