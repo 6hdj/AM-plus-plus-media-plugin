@@ -1,6 +1,7 @@
 package dev.kifranei.ampp.media
 
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +27,8 @@ internal data class GlassDialogAction(val label: String, val destructive: Boolea
  * Material copied from AM++'s liquid-glass bottom bar (glass/LiquidBottomTabs.kt `glassPanelMaterial`
  * + GlassNavigation `materialModifier`): vibrancy() + blur(GlassPolicy.PANEL_BLUR_DP = 4dp),
  * lens(24dp, 24dp) (GlassNavigation clamps it to 0.375 * min dimension), surface = containerColor
- * (dark theme 0xFF121212 @ 0.4), host-default Highlight (rim) and Shadow (the compat layer leaves them to the host).
+ * (dark theme 0xFF121212 @ 0.4), host-default Highlight (rim) and Shadow. Outer `.clip(shape)` keeps
+ * surface / host highlight / shadow inside the popup's 32dp rounded rect (no square corner peek).
  */
 internal object BottomBarGlass {
     val blurDp = 4.dp
@@ -48,8 +50,8 @@ internal object MoreMenuGlass {
 }
 
 /**
- * "No frost (early look)": what the first 1.3.2 build effectively drew (a wrong `$default` mask dropped
- * the surface and the highlight): vibrancy + blur 20dp + lens(20dp, 32dp), no tint, no rim. Passed explicitly.
+ * "No frost (early look)": vibrancy + blur 20dp + lens(20dp, 32dp), no surface tint (host highlight kept off).
+ * Rim is the same explicit More-menu white gradient `.border` (0.6dp, alphas .28/.07/.18), not the host highlight.
  */
 internal object NoFrostGlass {
     val blurDp = 20.dp
@@ -64,6 +66,7 @@ internal fun Modifier.popupGlass(backdrop: Backdrop, shape: androidx.compose.ui.
     style: PopupGlassStyle = PopupGlassStyle.current): Modifier = when (style) {
     PopupGlassStyle.BOTTOM_BAR -> compatDrawBackdrop(backdrop, shape = { shape },
         effects = { bottomBarGlassEffects() }, onDrawSurface = { drawRect(BottomBarGlass.container) })
+        .clip(shape)
     PopupGlassStyle.MORE_MENU -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(20.dp.toPx()); lens(10.dp.toPx(), 16.dp.toPx())
     }, onDrawSurface = { drawRect(MoreMenuGlass.surface) })
@@ -71,6 +74,7 @@ internal fun Modifier.popupGlass(backdrop: Backdrop, shape: androidx.compose.ui.
     PopupGlassStyle.NO_FROST -> compatDrawBackdrop(backdrop, shape = { shape }, effects = {
         vibrancy(); blur(NoFrostGlass.blurDp.toPx()); lens(NoFrostGlass.lensEdgeDp.toPx(), NoFrostGlass.lensDepthDp.toPx())
     }, onDrawSurface = {}, hostHighlight = false, fallbackSurface = { drawRect(NoFrostGlass.fallback) })
+        .border(.6.dp, Brush.linearGradient(MoreMenuGlass.rim), shape)
 }
 
 /** Same material, radius and buttons as the audio-quality disclosure. */
