@@ -333,6 +333,7 @@ internal class ContentDownloadsIntegration(
         private var lastLayoutLookup = 0L
         private var nativeTitle: TextView? = null
         private var lastGlyphs: ContentDownloadBounds? = null
+        private val hold = ContentDownloadPlacementHold()
         private var dialog: WeakReference<AlertDialog>? = null
         var pageId = ""
             private set
@@ -388,6 +389,7 @@ internal class ContentDownloadsIntegration(
             val title = (contracts.get(entity, "media-entity-get-title-method") as? String).orEmpty()
             if (id != pageId || title != pageTitle) {
                 pageId = id; pageTitle = title; anchor.clear(); nativeTitle = null; lastGlyphs = null; lastLayoutLookup = 0L
+                hold.reset()?.let { logAnchor(it) }
                 artistEntry.clear(); artistAnchor.clear()
             }
             if (entityRef?.get() !== entity) { entityRef = WeakReference(entity); enqueueEntity(entity) }
@@ -397,7 +399,10 @@ internal class ContentDownloadsIntegration(
             if (removed || closed || root.width <= 0 || root.height <= 0) return
             val now = SystemClock.uptimeMillis()
             if (now - lastLookup >= 500) { lastLookup = now; refreshMetadata() }
-            if (pageId.isEmpty() || kind == ContentDownloadPageKind.ALBUM && pageTitle.isBlank()) { button.visibility = View.GONE; return }
+            if (pageId.isEmpty() || kind == ContentDownloadPageKind.ALBUM && pageTitle.isBlank()) {
+                hold.reset()?.let { logAnchor(it) }
+                button.visibility = View.GONE; return
+            }
             root.getLocationOnScreen(position)
             val nativeGlyphs = if (kind == ContentDownloadPageKind.ALBUM) {
                 if (nativeTitle?.isAttachedToWindow != true) nativeTitle = root.findViewById<TextView>(albumTitleId)
@@ -407,18 +412,22 @@ internal class ContentDownloadsIntegration(
             val glyphs = nativeGlyphs ?: run {
                 if (now - lastLayoutLookup >= 500 || lastLayoutLookup == 0L) {
                     lastLayoutLookup = now
-                    anchor.find(root, pageTitle)
+                    anchor.find(root, pageTitle, now)
                 }
                 anchor.bounds(position)
             }
             lastGlyphs = glyphs
-            val placement = if (kind == ContentDownloadPageKind.ARTIST) {
+            val computed = if (kind == ContentDownloadPageKind.ARTIST) {
                 artistEntry.placement(glyphs, anchor.hasNode, root.width, root.height, root.resources.displayMetrics.density,
                     root.layoutDirection == View.LAYOUT_DIRECTION_RTL) { artistAnchor.placement(root, position, now) }
             } else glyphs?.let { contentDownloadButtonPlacement(it, root.width, root.height, root.resources.displayMetrics.density,
                 root.layoutDirection == View.LAYOUT_DIRECTION_RTL) }
-            if (placement == null) { button.visibility = View.GONE; return }
+            val held = hold.update(now, computed, if (glyphs == null) (if (anchor.hasNode) "anchor_bounds_unavailable" else "anchor_node_missing") else "placement_rejected")
+            held.transition?.let { logAnchor(it) }
+            val shown = held.placement
+            if (shown == null) { button.visibility = View.GONE; return }
             button.visibility = View.VISIBLE
+            val placement: ContentDownloadButtonPlacement = shown
             val params = button.layoutParams as FrameLayout.LayoutParams
             if (params.width != placement.size || params.height != placement.size) {
                 params.width = placement.size; params.height = placement.size; button.layoutParams = params
@@ -438,6 +447,7 @@ internal class ContentDownloadsIntegration(
             nativeTitle = null; anchor.clear(); entityRef = null; lastGlyphs = null
             artistEntry.clear(); artistAnchor.clear()
         }
+        private fun logAnchor(message: String) { MediaRuntime.log("content_download_anchor: kind=$kind page=$pageId $message") }
         private fun dp(value: Int) = (value * root.resources.displayMetrics.density).roundToInt()
     }
 }
@@ -573,16 +583,22 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
     private var glyphs: ContentDownloadGlyphGeometry? = null
     private var geometryReported = false
     val hasNode: Boolean get() = node != null
-    fun clear() { owner = null; node = null; glyphs = null }
+    fun clear() { owner = null; node = null; glyphs = null; lostSince = 0L }
 
-    fun find(root: View, title: String) {
-        clear()
-        if (title.isBlank()) return
+    private var lostSince = 0L
+
+    /**
+     * Re-scans for the title. A scan that finds nothing (page recomposing, text layout not ready, rows being loaded) keeps the
+     * previous node for [CONTENT_DOWNLOAD_ANCHOR_GRACE_MS] instead of dropping it, so the button does not flicker or vanish.
+     */
+    fun find(root: View, title: String, now: Long = 0L) {
+        if (title.isBlank()) { clear(); return }
+        var foundOwner: View? = null
+        var foundNode: Any? = null
+        var foundGlyphs: ContentDownloadGlyphGeometry? = null
+        var best: ContentDownloadAnchorCandidate? = null
         val views = ArrayDeque<View>(); views.add(root)
         var visited = 0
-        var bestHeading = false
-        var bestSize = 0f
-        var bestMatch = 0
         while (views.isNotEmpty() && visited++ < 256) {
             val view = views.removeFirst()
             if (view is ViewGroup) for (index in 0 until min(view.childCount, 256)) views.add(view.getChildAt(index))
@@ -591,7 +607,7 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
             val nodes = ArrayDeque<Any>(); nodes.add(semanticRoot)
             val seen = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
             var count = 0
-            while (nodes.isNotEmpty() && count++ < 512) {
+            while (nodes.isNotEmpty() && count++ < 1024) {
                 val current = nodes.removeFirst()
                 if (!seen.add(current)) continue
                 val properties = semanticsProperties(current)
@@ -600,16 +616,21 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
                 val match = if (plain != null) contentDownloadTitleMatch(plain, title) else 0
                 if (plain != null && match > 0) {
                     val local = glyphGeometry(properties["GetTextLayoutResult"], plain.length)
-                    val heading = properties.containsKey("Heading")
-                    // Exact matches beat badge-tolerant ones; then headings; then the larger text.
-                    val better = node == null || match > bestMatch || match == bestMatch &&
-                        (heading && !bestHeading || heading == bestHeading && local != null && local.lastLine.height > bestSize)
-                    if (local != null && better) {
-                        owner = view; node = current; glyphs = local; bestHeading = heading; bestSize = local.lastLine.height; bestMatch = match
+                    if (local != null) {
+                        val candidate = ContentDownloadAnchorCandidate(match, properties.containsKey("Heading"), local.lastLine.height)
+                        if (contentDownloadAnchorBetter(candidate, best)) {
+                            best = candidate; foundOwner = view; foundNode = current; foundGlyphs = local
+                        }
                     }
                 }
                 (contracts.call("content-download-semantics-children", current, true, false) as? List<*>)?.take(512)?.filterNotNull()?.forEach(nodes::add)
             }
+        }
+        if (foundNode != null) {
+            owner = foundOwner; node = foundNode; glyphs = foundGlyphs; lostSince = 0L
+        } else {
+            if (lostSince == 0L) lostSince = now
+            if (node != null && now - lostSince >= CONTENT_DOWNLOAD_ANCHOR_GRACE_MS) clear()
         }
     }
 
@@ -741,3 +762,55 @@ private val CONTENT_DOWNLOAD_METHODS = listOf(
 
 private val CONTENT_DOWNLOAD_FIELDS = listOf("loader-song-id", "loader-resume-label", "semantics-key-name", "semantics-action", "semantics-id", "rect-left", "rect-top", "rect-right", "rect-bottom")
     .map { "content-download-$it" }
+
+internal const val CONTENT_DOWNLOAD_ANCHOR_GRACE_MS = 1500L
+
+internal data class ContentDownloadAnchorCandidate(val match: Int, val heading: Boolean, val height: Float)
+
+/**
+ * Title-level ranking: a heading beats plain text, then the larger glyph height (page title is bigger than any track row),
+ * and only then the exact-vs-badge match. A same-named track row (smaller, not a heading) can therefore not hijack the title.
+ */
+internal fun contentDownloadAnchorBetter(candidate: ContentDownloadAnchorCandidate, best: ContentDownloadAnchorCandidate?): Boolean {
+    if (best == null) return true
+    if (candidate.heading != best.heading) return candidate.heading
+    if (kotlin.math.abs(candidate.height - best.height) > 1f) return candidate.height > best.height
+    return candidate.match > best.match
+}
+
+internal data class ContentDownloadHoldResult(val placement: ContentDownloadButtonPlacement?, val transition: String?)
+
+/** Keeps the last good button placement through short anchor gaps; hides only after sustained absence. */
+internal class ContentDownloadPlacementHold(private val graceMs: Long = CONTENT_DOWNLOAD_ANCHOR_GRACE_MS) {
+    private var last: ContentDownloadButtonPlacement? = null
+    private var lastGoodAt = 0L
+    private var holding = false
+    private var visible = false
+
+    fun reset(): String? {
+        val was = visible
+        last = null; holding = false; visible = false
+        return if (was) "hide reason=page_changed" else null
+    }
+
+    fun update(now: Long, placement: ContentDownloadButtonPlacement?, missReason: String): ContentDownloadHoldResult {
+        if (placement != null) {
+            val transition = when {
+                !visible -> "show reason=anchor_found"
+                holding -> "recover reason=anchor_reappeared"
+                else -> null
+            }
+            last = placement; lastGoodAt = now; holding = false; visible = true
+            return ContentDownloadHoldResult(placement, transition)
+        }
+        val kept = last
+        if (kept != null && visible && now - lastGoodAt < graceMs) {
+            val transition = if (!holding) "hold reason=$missReason" else null
+            holding = true
+            return ContentDownloadHoldResult(kept, transition)
+        }
+        val transition = if (visible) "hide reason=${missReason}_sustained" else null
+        last = null; holding = false; visible = false
+        return ContentDownloadHoldResult(null, transition)
+    }
+}

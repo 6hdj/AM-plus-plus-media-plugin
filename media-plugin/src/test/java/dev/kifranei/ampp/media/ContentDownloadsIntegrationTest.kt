@@ -227,3 +227,50 @@ class ContentDownloadTitleMatchTest {
         org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefe", ""))
     }
 }
+
+class ContentDownloadAnchorStabilityTest {
+    private val p = ContentDownloadButtonPlacement(10, 20, 40, 1, 1, 18)
+
+    @Test fun `short anchor gap keeps the button then recovers without flicker`() {
+        val h = ContentDownloadPlacementHold(1500)
+        assertEquals("show reason=anchor_found", h.update(0, p, "x").transition)
+        val gap = h.update(500, null, "anchor_node_missing")
+        assertEquals(p, gap.placement); assertEquals("hold reason=anchor_node_missing", gap.transition)
+        assertNull(h.update(900, null, "anchor_node_missing").transition)
+        val back = h.update(1000, p, "x")
+        assertEquals(p, back.placement); assertEquals("recover reason=anchor_reappeared", back.transition)
+        assertNull(h.update(1100, p, "x").transition)
+    }
+
+    @Test fun `sustained absence hides and logs the reason`() {
+        val h = ContentDownloadPlacementHold(1500)
+        h.update(0, p, "x")
+        assertNotNull(h.update(1499, null, "anchor_bounds_unavailable").placement)
+        val gone = h.update(1500, null, "anchor_bounds_unavailable")
+        assertNull(gone.placement); assertEquals("hide reason=anchor_bounds_unavailable_sustained", gone.transition)
+        assertNull(h.update(1600, null, "anchor_bounds_unavailable").transition)
+    }
+
+    @Test fun `page change resets so a stale position is never shown for a new page`() {
+        val h = ContentDownloadPlacementHold(1500)
+        h.update(0, p, "x")
+        assertEquals("hide reason=page_changed", h.reset())
+        assertNull(h.update(10, null, "anchor_node_missing").placement)
+        assertNull(h.reset())
+    }
+
+    @Test fun `same-named track row cannot hijack the title node`() {
+        val title = ContentDownloadAnchorCandidate(1, true, 40f)
+        val trackExact = ContentDownloadAnchorCandidate(2, false, 20f)
+        assertFalse(contentDownloadAnchorBetter(trackExact, title))
+        assertTrue(contentDownloadAnchorBetter(title, trackExact))
+        assertTrue(contentDownloadAnchorBetter(ContentDownloadAnchorCandidate(1, false, 40f), ContentDownloadAnchorCandidate(2, false, 20f)))
+        assertTrue(contentDownloadAnchorBetter(ContentDownloadAnchorCandidate(2, false, 40f), ContentDownloadAnchorCandidate(1, false, 40f)))
+        assertTrue(contentDownloadAnchorBetter(title, null))
+    }
+
+    @Test fun `track title with explicit badge does not match the album title`() {
+        assertEquals(0, contentDownloadTitleMatch("Nothing New E", "Fictional Illustrations"))
+        assertEquals(1, contentDownloadTitleMatch("Fictional Illustrations \uFFFC", "Fictional Illustrations"))
+    }
+}
