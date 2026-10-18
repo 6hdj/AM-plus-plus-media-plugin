@@ -213,3 +213,17 @@ class ContentDownloadsIntegrationTest {
             "content-download-rect-bottom" to FakeRect::class.java.getField("bottom")),
     )
 }
+
+class ContentDownloadTitleMatchTest {
+    @Test fun `exact title still matches best`() = org.junit.Assert.assertEquals(2, contentDownloadTitleMatch(" Jefe ", "Jefe"))
+    @Test fun `explicit badge variants after the title match`() {
+        for (s in listOf("Jefe\uFFFD", "Jefe \uFFFC", "Jefe E", "JefeE", "Jefe Explicit", "Jefe [E]", "Jefe \uD83C\uDD34"))
+            org.junit.Assert.assertEquals(s, 1, contentDownloadTitleMatch(s, "Jefe"))
+    }
+    @Test fun `different titles do not match`() {
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefe 2", "Jefe"))
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefes", "Jefe"))
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Intro", "Jefe"))
+        org.junit.Assert.assertEquals(0, contentDownloadTitleMatch("Jefe", ""))
+    }
+}

@@ -401,7 +401,7 @@ internal class ContentDownloadsIntegration(
             root.getLocationOnScreen(position)
             val nativeGlyphs = if (kind == ContentDownloadPageKind.ALBUM) {
                 if (nativeTitle?.isAttachedToWindow != true) nativeTitle = root.findViewById<TextView>(albumTitleId)
-                nativeTitle?.takeIf { normalizeContentDownloadTitle(it.text.toString()) == normalizeContentDownloadTitle(pageTitle) }
+                nativeTitle?.takeIf { contentDownloadTitleMatch(it.text.toString(), pageTitle) > 0 }
                     ?.let { textViewGlyphBounds(it, position) }
             } else null
             val glyphs = nativeGlyphs ?: run {
@@ -545,6 +545,24 @@ internal fun contentDownloadButtonPlacement(title: ContentDownloadBounds, width:
     return null
 }
 
+/**
+ * 2 = exact title, 1 = title followed only by an explicit/clean badge (inline placeholder char, "E", "Explicit"...), 0 = no match.
+ * Apple's title row renders the "E" badge inside the same text node/semantics, so strict equality used to reject the page title.
+ */
+internal fun contentDownloadTitleMatch(plain: String, title: String): Int {
+    val t = normalizeContentDownloadTitle(title)
+    if (t.isEmpty()) return 0
+    val n = normalizeContentDownloadTitle(plain)
+    if (n == t) return 2
+    if (!n.startsWith(t)) return 0
+    val rest = n.substring(t.length).filter { it.code != 0xFFFC && it.code != 0xFFFD && it.code !in 0x200b..0x200f && it.code != 0x2060 && it.code != 0xFEFF }
+        .trim().trim('[', ']', '(', ')').trim().lowercase()
+    return if (rest in CONTENT_DOWNLOAD_BADGE_TEXT) 1 else 0
+}
+
+private val CONTENT_DOWNLOAD_BADGE_TEXT = setOf("", "e", "c", "explicit", "clean", "explicit content", "\uD83C\uDD34", "\uD83C\uDD72", "\uD83C\uDD54", "\uD83C\uDD52",
+    "露骨", "不适宜内容", "明确", "已净化")
+
 internal fun normalizeContentDownloadTitle(value: String) = value.filter { it.code !in 0x202a..0x202e && it.code !in 0x2066..0x2069 }
     .trim().replace(Regex("\\s+"), " ")
 
@@ -564,6 +582,7 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
         var visited = 0
         var bestHeading = false
         var bestSize = 0f
+        var bestMatch = 0
         while (views.isNotEmpty() && visited++ < 256) {
             val view = views.removeFirst()
             if (view is ViewGroup) for (index in 0 until min(view.childCount, 256)) views.add(view.getChildAt(index))
@@ -578,11 +597,15 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
                 val properties = semanticsProperties(current)
                 val text = properties["Text"] as? List<*>
                 val plain = text?.joinToString("") { element -> contracts.call("content-download-annotated-text", element) as? String ?: (element as? String).orEmpty() }
-                if (plain != null && normalizeContentDownloadTitle(plain) == normalizeContentDownloadTitle(title)) {
+                val match = if (plain != null) contentDownloadTitleMatch(plain, title) else 0
+                if (plain != null && match > 0) {
                     val local = glyphGeometry(properties["GetTextLayoutResult"], plain.length)
                     val heading = properties.containsKey("Heading")
-                    if (local != null && (node == null || heading && !bestHeading || heading == bestHeading && local.lastLine.height > bestSize)) {
-                        owner = view; node = current; glyphs = local; bestHeading = heading; bestSize = local.lastLine.height
+                    // Exact matches beat badge-tolerant ones; then headings; then the larger text.
+                    val better = node == null || match > bestMatch || match == bestMatch &&
+                        (heading && !bestHeading || heading == bestHeading && local != null && local.lastLine.height > bestSize)
+                    if (local != null && better) {
+                        owner = view; node = current; glyphs = local; bestHeading = heading; bestSize = local.lastLine.height; bestMatch = match
                     }
                 }
                 (contracts.call("content-download-semantics-children", current, true, false) as? List<*>)?.take(512)?.filterNotNull()?.forEach(nodes::add)
@@ -653,7 +676,11 @@ private fun textViewGlyphBounds(title: TextView, rootPosition: IntArray): Conten
     val line = layout.lineCount - 1
     val left = position[0] - rootPosition[0] + title.compoundPaddingLeft + layout.getLineLeft(line)
     val top = (position[1] - rootPosition[1] + title.extendedPaddingTop + layout.getLineTop(line)).toFloat()
-    val result = ContentDownloadBounds(left, top, position[0] - rootPosition[0] + title.compoundPaddingLeft + layout.getLineRight(line),
+    // A badge set as a compound drawable sits after the text; keep the button beyond it.
+    val rtl = title.layoutDirection == View.LAYOUT_DIRECTION_RTL
+    val badge = title.compoundDrawablesRelative.let { if (rtl) it[0] else it[2] }
+    val badgeWidth = if (badge != null && !rtl) badge.intrinsicWidth.coerceAtLeast(0) + title.compoundDrawablePadding else 0
+    val result = ContentDownloadBounds(left, top, position[0] - rootPosition[0] + title.compoundPaddingLeft + layout.getLineRight(line) + badgeWidth,
         position[1] - rootPosition[1] + title.extendedPaddingTop + layout.getLineBottom(line).toFloat())
     val visible = Rect()
     if (!title.getGlobalVisibleRect(visible) || result.top + rootPosition[1] < visible.top || result.bottom + rootPosition[1] > visible.bottom) return null
