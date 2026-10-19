@@ -303,4 +303,40 @@ class ContentDownloadAnchorStabilityTest {
         assertTrue(s, s.contains("…"))
         assertEquals(1, Regex("\\bPlay\\b").findAll(s).count())
     }
+
+    @Test fun `badge extent includes inline placeholder and suffix descriptors but not artist text`() {
+        val t = "Fictional Illustrations"
+        assertEquals(t.length, contentDownloadBadgeExtent(t, t))
+        assertEquals(t.length + 2, contentDownloadBadgeExtent("$t \uFFFC", t))
+        assertEquals("$t, Explicit".length, contentDownloadBadgeExtent("$t, Explicit", t))
+        assertEquals(t.length, contentDownloadBadgeExtent("$t, Explicit, Fly By Midnight", t))
+        assertEquals(t.length, contentDownloadBadgeExtent("$t\nFly By Midnight", t))
+    }
+
+    @Test fun `badge node to the right of the title moves the anchor to the badge right edge`() {
+        val title = ContentDownloadBounds(100f, 200f, 300f, 236f)
+        val badge = ContentDownloadBounds(306f, 208f, 326f, 228f)
+        val adjusted = checkNotNull(contentDownloadBadgeAdjust(title, listOf(badge)))
+        assertEquals(326f, adjusted.right, 0f)
+        assertEquals(100f, adjusted.left, 0f)
+        val placed = checkNotNull(contentDownloadButtonPlacement(adjusted, 360, 800, 1f, false))
+        assertTrue(placed.left + placed.iconLeft >= badge.right + 4 - 0.5f)
+        assertTrue(placed.left >= 0 && placed.left + placed.size <= 360)
+    }
+
+    @Test fun `unrelated or distant badge-like nodes leave the title placement unchanged`() {
+        val title = ContentDownloadBounds(100f, 200f, 300f, 236f)
+        assertNull(contentDownloadBadgeAdjust(title, emptyList()))
+        assertNull(contentDownloadBadgeAdjust(title, listOf(ContentDownloadBounds(100f, 400f, 120f, 420f))))
+        assertNull(contentDownloadBadgeAdjust(title, listOf(ContentDownloadBounds(500f, 208f, 520f, 228f))))
+        assertNull(contentDownloadBadgeAdjust(title, listOf(ContentDownloadBounds(20f, 208f, 40f, 228f))))
+    }
+
+    @Test fun `badge text recognition`() {
+        assertTrue(contentDownloadIsBadgeText("E"))
+        assertTrue(contentDownloadIsBadgeText("Explicit"))
+        assertTrue(contentDownloadIsBadgeText("\uD83C\uDD34"))
+        assertFalse(contentDownloadIsBadgeText(""))
+        assertFalse(contentDownloadIsBadgeText("Explicit Hits"))
+    }
 }
