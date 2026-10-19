@@ -333,7 +333,7 @@ internal class ContentDownloadsIntegration(
         private var lastLayoutLookup = 0L
         private var nativeTitle: TextView? = null
         private var lastGlyphs: ContentDownloadBounds? = null
-        private val hold = ContentDownloadPlacementHold()
+        private val hold = ContentDownloadPlacementHold(if (kind == ContentDownloadPageKind.ALBUM) CONTENT_DOWNLOAD_HOLD_WHILE_PAGE_LIVE else CONTENT_DOWNLOAD_ANCHOR_GRACE_MS)
         private var dialog: WeakReference<AlertDialog>? = null
         var pageId = ""
             private set
@@ -586,6 +586,8 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
     fun clear() { owner = null; node = null; glyphs = null; lostSince = 0L }
 
     private var lostSince = 0L
+    private var missReported = false
+    private var looseReported = false
 
     /**
      * Re-scans for the title. A scan that finds nothing (page recomposing, text layout not ready, rows being loaded) keeps the
@@ -597,23 +599,38 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
         var foundNode: Any? = null
         var foundGlyphs: ContentDownloadGlyphGeometry? = null
         var best: ContentDownloadAnchorCandidate? = null
+        var looseOwner: View? = null; var looseNode: Any? = null; var looseGlyphs: ContentDownloadGlyphGeometry? = null
+        var looseBest: ContentDownloadAnchorCandidate? = null
+        val texts = ArrayList<String>(); var owners = 0; var nodeTotal = 0; var capped = false
         val views = ArrayDeque<View>(); views.add(root)
         var visited = 0
-        while (views.isNotEmpty() && visited++ < 256) {
+        while (views.isNotEmpty()) {
+            if (visited++ >= 256) { capped = true; break }
             val view = views.removeFirst()
             if (view is ViewGroup) for (index in 0 until min(view.childCount, 256)) views.add(view.getChildAt(index))
             val semanticOwner = contracts.call("content-download-compose-semantics", view) ?: continue
             val semanticRoot = contracts.call("content-download-semantics-root", semanticOwner) ?: continue
+            owners++
             val nodes = ArrayDeque<Any>(); nodes.add(semanticRoot)
             val seen = Collections.newSetFromMap(IdentityHashMap<Any, Boolean>())
             var count = 0
-            while (nodes.isNotEmpty() && count++ < 1024) {
+            while (nodes.isNotEmpty()) {
+                if (count++ >= 1024) { capped = true; break }
+                nodeTotal++
                 val current = nodes.removeFirst()
                 if (!seen.add(current)) continue
                 val properties = semanticsProperties(current)
                 val text = properties["Text"] as? List<*>
                 val plain = text?.joinToString("") { element -> contracts.call("content-download-annotated-text", element) as? String ?: (element as? String).orEmpty() }
                 val match = if (plain != null) contentDownloadTitleMatch(plain, title) else 0
+                if (plain != null && match == 0 && texts.size < 200) texts.add(plain)
+                if (plain != null && match == 0 && contentDownloadTitleLooseMatch(plain, title)) {
+                    val local = glyphGeometry(properties["GetTextLayoutResult"], normalizeContentDownloadTitle(title).length.coerceAtMost(plain.length))
+                    if (local != null) {
+                        val candidate = ContentDownloadAnchorCandidate(0, properties.containsKey("Heading"), local.lastLine.height)
+                        if (contentDownloadAnchorBetter(candidate, looseBest)) { looseBest = candidate; looseOwner = view; looseNode = current; looseGlyphs = local }
+                    }
+                }
                 if (plain != null && match > 0) {
                     val local = glyphGeometry(properties["GetTextLayoutResult"], plain.length)
                     if (local != null) {
@@ -626,9 +643,17 @@ internal class ContentDownloadComposeAnchor(private val contracts: ContentDownlo
                 (contracts.call("content-download-semantics-children", current, true, false) as? List<*>)?.take(512)?.filterNotNull()?.forEach(nodes::add)
             }
         }
+        if (foundNode == null && looseNode != null) {
+            foundOwner = looseOwner; foundNode = looseNode; foundGlyphs = looseGlyphs
+            if (!looseReported) { looseReported = true; MediaRuntime.log("content_download_anchor: matched merged title node (loose)") }
+        }
         if (foundNode != null) {
-            owner = foundOwner; node = foundNode; glyphs = foundGlyphs; lostSince = 0L
+            owner = foundOwner; node = foundNode; glyphs = foundGlyphs; lostSince = 0L; missReported = false
         } else {
+            if (!missReported) {
+                missReported = true
+                MediaRuntime.log("content_download_anchor: " + contentDownloadMissSummary(title, visited, owners, nodeTotal, capped, texts))
+            }
             if (lostSince == 0L) lostSince = now
             if (node != null && now - lostSince >= CONTENT_DOWNLOAD_ANCHOR_GRACE_MS) clear()
         }
@@ -764,6 +789,33 @@ private val CONTENT_DOWNLOAD_FIELDS = listOf("loader-song-id", "loader-resume-la
     .map { "content-download-$it" }
 
 internal const val CONTENT_DOWNLOAD_ANCHOR_GRACE_MS = 1500L
+/** Album pages keep the last good placement for as long as the same page stays current (reset on page change / close). */
+internal const val CONTENT_DOWNLOAD_HOLD_WHILE_PAGE_LIVE = Long.MAX_VALUE
+
+/**
+ * Tolerant title match for semantics nodes that merge the title with descriptors ("Title, Explicit, Artist", "Title\nArtist"):
+ * the node text must start with the full title followed by a non-alphanumeric boundary. Weaker than [contentDownloadTitleMatch],
+ * so it is only used when no strict candidate exists.
+ */
+internal fun contentDownloadTitleLooseMatch(plain: String, title: String): Boolean {
+    val t = normalizeContentDownloadTitle(title)
+    if (t.isEmpty()) return false
+    val n = normalizeContentDownloadTitle(plain)
+    if (n.length <= t.length || !n.startsWith(t)) return false
+    val next = n[t.length]
+    return !next.isLetterOrDigit() || !t.last().isLetterOrDigit()
+}
+
+/** One-line summary of why no anchor matched: scan counters plus the closest text candidates (truncated). */
+internal fun contentDownloadMissSummary(title: String, views: Int, owners: Int, nodes: Int, capped: Boolean, texts: List<String>): String {
+    fun cut(v: String) = normalizeContentDownloadTitle(v).replace('\n', ' ').let { if (it.length > 48) it.take(48) + "…" else it }
+    val t = normalizeContentDownloadTitle(title)
+    val ranked = texts.distinct().sortedByDescending { n ->
+        val x = normalizeContentDownloadTitle(n)
+        when { x.contains(t) -> 3; t.isNotEmpty() && x.take(4).equals(t.take(4), true) -> 2; else -> 0 }
+    }.take(5)
+    return "anchor_scan_miss title=\"${cut(title)}\" views=$views semanticsOwners=$owners nodes=$nodes capped=$capped texts=${ranked.map(::cut)}"
+}
 
 internal data class ContentDownloadAnchorCandidate(val match: Int, val heading: Boolean, val height: Float)
 

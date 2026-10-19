@@ -273,4 +273,34 @@ class ContentDownloadAnchorStabilityTest {
         assertEquals(0, contentDownloadTitleMatch("Nothing New E", "Fictional Illustrations"))
         assertEquals(1, contentDownloadTitleMatch("Fictional Illustrations \uFFFC", "Fictional Illustrations"))
     }
+
+    @Test fun `album hold keeps the last placement indefinitely until page change`() {
+        val h = ContentDownloadPlacementHold(CONTENT_DOWNLOAD_HOLD_WHILE_PAGE_LIVE)
+        h.update(0, p, "x")
+        assertEquals(p, h.update(3_600_000, null, "anchor_node_missing").placement)
+        assertEquals(p, h.update(7_200_000, null, "anchor_node_missing").placement)
+        assertEquals("recover reason=anchor_reappeared", h.update(7_200_100, p, "x").transition)
+        assertEquals("hide reason=page_changed", h.reset())
+        assertNull(h.update(7_300_000, null, "anchor_node_missing").placement)
+    }
+
+    @Test fun `loose match accepts title merged with descriptors but not other titles`() {
+        val t = "Fictional Illustrations"
+        assertTrue(contentDownloadTitleLooseMatch("Fictional Illustrations, Explicit, Fly By Midnight", t))
+        assertTrue(contentDownloadTitleLooseMatch("Fictional Illustrations\nFly By Midnight", t))
+        assertTrue(contentDownloadTitleLooseMatch("Fictional Illustrations Dolby Atmos", t))
+        assertFalse(contentDownloadTitleLooseMatch("Fictional Illustrationsx", t))
+        assertFalse(contentDownloadTitleLooseMatch("Fictional Illustrations", t))
+        assertFalse(contentDownloadTitleLooseMatch("Nothing New", t))
+        assertFalse(contentDownloadTitleLooseMatch("Fictional", t))
+    }
+
+    @Test fun `miss summary reports counters and closest truncated candidates`() {
+        val s = contentDownloadMissSummary("Fictional Illustrations", 12, 2, 300, true,
+            listOf("Play", "Fictional Illustrations Remastered " + "x".repeat(80), "Fict other", "Play"))
+        assertTrue(s, s.startsWith("anchor_scan_miss title=\"Fictional Illustrations\" views=12 semanticsOwners=2 nodes=300 capped=true texts=["))
+        assertTrue(s, s.indexOf("Fictional Illustrations Remastered") < s.indexOf("Fict other"))
+        assertTrue(s, s.contains("…"))
+        assertEquals(1, Regex("\\bPlay\\b").findAll(s).count())
+    }
 }
