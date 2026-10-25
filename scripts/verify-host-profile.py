@@ -5,7 +5,7 @@ complete method signature (owner, static/instance descriptor and return type) an
 adaptation pinned one, the field name. No APK code is executed and no file is written.
 
 Usage:
-    python scripts/verify-host-profile.py apple-music-1611.apk --glass   # the profile is chosen from the APK's own version
+    python scripts/verify-host-profile.py apple-music-1613.apks --glass   # the profile is chosen from the APK's own version
 """
 import argparse
 import io
