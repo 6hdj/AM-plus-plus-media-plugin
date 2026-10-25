@@ -11,7 +11,7 @@
   "lyricon": {
     "viewModelClass": "com.apple.android.music.player.viewmodel.PlayerLyricsViewModel",
     "buildMethod": "buildTimeRangeToLyricsMap",
-    "installedPointerField": "g1",
+    "installedPointerField": "f1",
     "loadMethod": "loadLyrics",
     "itemClass": "com.apple.android.music.model.PlaybackItem",
     "localeUtilClass": "com.apple.android.music.playback.util.LocaleUtil",

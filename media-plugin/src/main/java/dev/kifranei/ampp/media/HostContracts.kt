@@ -61,7 +61,9 @@ internal object PluginProfiles {
         "long" -> java.lang.Long.TYPE
         "float" -> java.lang.Float.TYPE
         "boolean" -> java.lang.Boolean.TYPE
-        else -> loader.loadClass(name)
+        // ClassLoader.loadClass cannot resolve array descriptors such as "[Lfoo.Bar;" (self-check reported
+        // editorial-video-url-selector as ClassNotFoundException on every build); Class.forName can.
+        else -> if (name.startsWith("[")) Class.forName(name, false, loader) else loader.loadClass(name)
     }
     fun method(key: String): Method = try { resolveMethod(key) } catch (error: Throwable) {
         MediaDiag.event("contract", "method '$key' unresolved: ${describeContract("methodContracts", key)} " +

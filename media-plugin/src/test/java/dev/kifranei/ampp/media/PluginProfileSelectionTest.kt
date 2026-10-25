@@ -81,6 +81,29 @@ class PluginProfileSelectionTest {
         }
     }
 
+    @Test fun `lyricon pointer field is the SongInfoPtr field verified on the lyrics install owner`() {
+        // 1613 shipped the 1611 name g1, which still exists on PlayerLyricsViewFragment but is an int there,
+        // so LyriconIntegration's check(type == SongInfoPtr) failed at startup.
+        val pointer = "Lcom/apple/android/music/ttml/javanative/model/SongInfo\$SongInfoPtr;"
+        entries().forEach { entry ->
+            val doc = document(entry)
+            val owner = doc.getJSONObject("indexed").getJSONObject("methodContracts")
+                .getJSONObject("lyrics-install-method").getString("owner")
+            val fields = doc.getJSONObject("verification").getJSONObject("fieldTypes")
+                .getJSONObject("L" + owner.replace('.', '/') + ";")
+            val field = doc.getJSONObject("lyricon").getString("installedPointerField")
+            assertEquals("${entry.asset} lyricon.installedPointerField", pointer, fields.optString(field))
+            assertEquals("${entry.asset} SongInfoPtr fields", listOf(field),
+                fields.keys().asSequence().filter { fields.getString(it) == pointer }.toList())
+        }
+    }
+
+    @Test fun `profile types resolve array descriptors`() {
+        PluginProfiles.load(Host("com.apple.android.music", "7.0.0-beta", 1613, assets))
+        assertEquals(Array<String>::class.java, PluginProfiles.type("[Ljava.lang.String;"))
+        assertEquals(java.lang.Float.TYPE, PluginProfiles.type("float"))
+    }
+
     @Test fun `each profile describes its own build and carries every section the code reads`() {
         val sections = listOf("audioOutput", "lyricon", "audioQualityDialog", "cardSharing", "indexed", "verification",
             "playerMoreMenu", "playerDialogs", "playerVolume", "playerRecovery", "contentDownloads")
